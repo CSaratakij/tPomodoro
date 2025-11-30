@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"time"
@@ -142,6 +143,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keymap.reset):
 			m.isStart = false
 			m.isPause = false
+			m.currentTimeSeconds = 0
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
 		case key.Matches(msg, m.keymap.start):
@@ -234,7 +236,12 @@ func (m model) View() string {
 	} else if m.progress.Percent() == 1.0 {
 		subTitle = "done"
 	} else {
-		subTitle = "25m"
+		targetTimeMinutes := getPomodoroTime(m.currentState)
+		currentTimeMinutes := int(math.Trunc(m.currentTimeSeconds / 60.0))
+		elapsed := targetTimeMinutes - currentTimeMinutes
+
+		//subTitle = "25m"
+		subTitle = fmt.Sprintf("%2dm", elapsed)
 		//subTitle = " 5m"
 		//subTitle = "30m"
 	}
