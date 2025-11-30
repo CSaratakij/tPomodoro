@@ -71,7 +71,7 @@ var titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Rende
 var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 var progressOption = progress.WithSolidFill("#ffffff")
 
-func getDefaultTime(state PomodoroState) int {
+func getPomodoroTime(state PomodoroState) int {
 	switch state {
 	case StateFocus:
 		return 25
@@ -98,9 +98,9 @@ func main() {
 		progress: progress.New(progressOption),
 		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus))),
 		setting: setting{
-			focusTime:     getDefaultTime(StateFocus),
-			breakTime:     getDefaultTime(StateBreak),
-			longBreakTime: getDefaultTime(StateLongBreak),
+			focusTime:     getPomodoroTime(StateFocus),
+			breakTime:     getPomodoroTime(StateBreak),
+			longBreakTime: getPomodoroTime(StateLongBreak),
 		},
 		currentState:         StateFocus,
 		currentTimeSeconds:   0,
@@ -171,13 +171,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Note that you can also use progress.Model.SetPercent to set the
 		if m.isPause {
 			return m, tickCmd()
 		}
 
-		// percentage value explicitly, too.
-		cmd := m.progress.IncrPercent(0.2)
+		targetTimeSeconds := float64(getPomodoroTime(m.currentState) * 60.0)
+		currentTimeSeconds := m.currentTimeSeconds + 1
+
+		if currentTimeSeconds > targetTimeSeconds {
+			currentTimeSeconds = targetTimeSeconds
+		}
+
+		timeProgress := currentTimeSeconds / targetTimeSeconds
+		m.currentTimeSeconds = currentTimeSeconds
+
+		cmd := m.progress.SetPercent(timeProgress)
 		return m, tea.Batch(tickCmd(), cmd)
 
 	// FrameMsg is sent when the progress bar wants to animate itself
@@ -187,11 +195,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	default:
-		if m.isStart && !m.isPause {
+		shouldUpdateSpinner := m.isStart && !m.isPause
+
+		if shouldUpdateSpinner {
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
 			return m, cmd
 		}
+
 		return m, nil
 	}
 }
