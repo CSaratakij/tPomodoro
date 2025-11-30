@@ -49,7 +49,7 @@ type model struct {
 	keymap               keymap
 	setting              setting
 	isStart              bool
-	isTogglePause        bool
+	isPause              bool
 	currentState         PomodoroState
 	currentTimeSeconds   float64
 	currentPomodoroCycle int
@@ -141,12 +141,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, m.keymap.reset):
 			m.isStart = false
+			m.isPause = false
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
 		case key.Matches(msg, m.keymap.start):
 			isStart := m.isStart
 			if isStart {
-				isPaused := !m.isTogglePause
+				isPaused := !m.isPause
 				return onPaused(m, isPaused)
 			} else {
 				return onStarted(m, true)
@@ -171,7 +172,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Note that you can also use progress.Model.SetPercent to set the
-		if m.isTogglePause {
+		if m.isPause {
 			return m, tickCmd()
 		}
 
@@ -186,7 +187,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	default:
-		if m.isStart && !m.isTogglePause {
+		if m.isStart && !m.isPause {
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
 			return m, cmd
@@ -201,7 +202,7 @@ func onStarted(m model, isStarted bool) (tea.Model, tea.Cmd) {
 }
 
 func onPaused(m model, isPaused bool) (tea.Model, tea.Cmd) {
-	m.isTogglePause = isPaused
+	m.isPause = isPaused
 
 	if !isPaused {
 		cmd := m.spinner.Tick
@@ -217,7 +218,7 @@ func (m model) View() string {
 	var subTitle string
 	var contextHint string
 
-	if m.isTogglePause {
+	if m.isPause {
 		subTitle = "paused"
 	} else if m.progress.Percent() == 1.0 {
 		subTitle = "done"
