@@ -18,6 +18,7 @@ import (
 const (
 	padding          = 2
 	spinnerFPS       = 2
+	minStartProgress = 0.012
 	maxWidth         = 80
 	maxPomodoroCycle = 4
 )
@@ -61,9 +62,9 @@ type setting struct {
 }
 
 type keymap struct {
-	reset       key.Binding
-	quit        key.Binding
-	togglePause key.Binding
+	start key.Binding
+	reset key.Binding
+	quit  key.Binding
 }
 
 var titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render
@@ -105,6 +106,10 @@ func main() {
 		currentTimeSeconds:   0,
 		currentPomodoroCycle: 1,
 		keymap: keymap{
+			start: key.NewBinding(
+				key.WithKeys("s", " "),
+				key.WithHelp("s", "start/pause"),
+			),
 			reset: key.NewBinding(
 				key.WithKeys("r"),
 				key.WithHelp("r", "reset"),
@@ -112,10 +117,6 @@ func main() {
 			quit: key.NewBinding(
 				key.WithKeys("ctrl+c", "q"),
 				key.WithHelp("q", "quit"),
-			),
-			togglePause: key.NewBinding(
-				key.WithKeys(" "),
-				key.WithHelp("space", "pause/resume"),
 			),
 		},
 	}
@@ -131,7 +132,7 @@ func main() {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(tickCmd(), m.spinner.Tick)
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -139,14 +140,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keymap.reset):
-			//cmd := m.progress.SetPercent(0.02)
+			m.isStart = false
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
+		case key.Matches(msg, m.keymap.start):
+			isStart := m.isStart
+			if isStart {
+				isPaused := !m.isTogglePause
+				return onPaused(m, isPaused)
+			} else {
+				return onStarted(m, true)
+			}
 		case key.Matches(msg, m.keymap.quit):
 			return m, tea.Quit
-		case key.Matches(msg, m.keymap.togglePause):
-			isPaused := !m.isTogglePause
-			return onPaused(m, isPaused)
 		default:
 			return m, nil
 		}
@@ -160,13 +166,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 
+		if !m.isStart {
+			return m, nil
+		}
+
+		// Note that you can also use progress.Model.SetPercent to set the
 		if m.isTogglePause {
 			return m, tickCmd()
 		}
 
-		// Note that you can also use progress.Model.SetPercent to set the
 		// percentage value explicitly, too.
-		cmd := m.progress.IncrPercent(0.1)
+		cmd := m.progress.IncrPercent(0.2)
 		return m, tea.Batch(tickCmd(), cmd)
 
 	// FrameMsg is sent when the progress bar wants to animate itself
@@ -176,13 +186,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	default:
-		if !m.isTogglePause {
+		if m.isStart && !m.isTogglePause {
 			var cmd tea.Cmd
 			m.spinner, cmd = m.spinner.Update(msg)
 			return m, cmd
 		}
 		return m, nil
 	}
+}
+
+func onStarted(m model, isStarted bool) (tea.Model, tea.Cmd) {
+	m.isStart = isStarted
+	return m, tea.Batch(tickCmd(), m.spinner.Tick)
 }
 
 func onPaused(m model, isPaused bool) (tea.Model, tea.Cmd) {
@@ -204,6 +219,8 @@ func (m model) View() string {
 
 	if m.isTogglePause {
 		subTitle = "paused"
+	} else if m.progress.Percent() == 1.0 {
+		subTitle = "done"
 	} else {
 		subTitle = "25m"
 		//subTitle = " 5m"
@@ -228,8 +245,14 @@ func (m model) View() string {
 	extraPadTop := strings.Repeat(" ", m.progress.Width-(titlePadding+subTitlePadding))
 	extraPadBottom := strings.Repeat(" ", totalBottomPadding)
 
+	if m.isStart {
+		subTitle = titleStyle(subTitle)
+	} else {
+		subTitle = helpStyle(subTitle)
+	}
+
 	return "\n" +
-		pad + m.spinner.View() + " " + titleStyle(title) + extraPadTop + helpStyle(subTitle) + "\n" +
+		pad + m.spinner.View() + " " + titleStyle(title) + extraPadTop + titleStyle(subTitle) + "\n" +
 		pad + m.progress.View() + "\n" +
 		pad + extraPadBottom + helpStyle(contextHint)
 }
