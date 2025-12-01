@@ -4,17 +4,22 @@ simple Pomodoro (TUI)
 ![A TUI preview](res/preview.png "")
 
 ### Features
-- [x] simple pomodoro in terminal
-- [x] minimal by design
-- [-] customization through cli
+- [ x ] simple pomodoro in terminal
+- [ x ] minimal by design
+- [ - ] customization through cli
 
-### Installation
+## Installation
 #### Pre-built
-TODO
+- just grab it from [release](), unzip and have fun :D
 
 #### Build from source
-TODO
+```shell
+$ git clone ""
+$ go mod download
+$ go build main.go
+```
 
+## Getting Started
 ### Keybinding
 |Key|Action|
 |---|------|
@@ -35,5 +40,9 @@ set environment variables appropriately.<br>
 |tPOMODORO_ALERT_TIMEOUT|alert timeout in miliseconds|30000|
 
 example:<br>
+```shell
+$ export tPOMODORO_ALERT_TIMEOUT=0      # disable timeout
+```
 
-    $ export tPOMODORO_ALERT_TIMEOUT=0      # disable timeout
+## Author
+[@CSaratakij](https://github.com/csaratakij)
