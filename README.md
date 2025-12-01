@@ -1,7 +1,7 @@
 # tPomodoro
 simple Pomodoro (TUI)
 
-![A TUI preview](preview.png "")
+![A TUI preview](res/preview.png "")
 
 ### Features
 - [x] simple pomodoro in terminal
@@ -25,7 +25,7 @@ TODO
 
 ### For alert when timer finish
 no built-in alert, use [external scripts](tPomodoro-alert.sh) instead.<br>
-include with default [beep sound](beep_success.wav).<br>
+include with default [beep sound](res/beep_success.wav).<br>
 set environment variables appropriately.<br>
 
 |Variable|Description|Default|
