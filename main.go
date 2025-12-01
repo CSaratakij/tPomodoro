@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,6 +35,12 @@ const (
 	StateLongBreak
 )
 
+var stateName = map[PomodoroState]string{
+	StateFocus:     "StateFocus",
+	StateBreak:     "StateBreak",
+	StateLongBreak: "StateLongBreak",
+}
+
 var stateLabel = map[PomodoroState]string{
 	StateFocus:     "Focus",
 	StateBreak:     "Break",
@@ -40,6 +48,10 @@ var stateLabel = map[PomodoroState]string{
 }
 
 func (state PomodoroState) String() string {
+	return stateName[state]
+}
+
+func getStateLabel(state PomodoroState) string {
 	return stateLabel[state]
 }
 
@@ -52,6 +64,7 @@ type model struct {
 	setting              setting
 	isStart              bool
 	isPause              bool
+	isFinish             bool
 	useMinimalHint       bool
 	currentState         PomodoroState
 	currentTimeSeconds   float64
@@ -75,6 +88,8 @@ type keymap struct {
 var activeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render
 var inactiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 var progressOption = progress.WithSolidFill("#ffffff")
+
+var alertScriptPath string = ""
 
 func getPomodoroTime(state PomodoroState) int {
 	switch state {
@@ -104,6 +119,7 @@ func getDefaultSpinner(state PomodoroState, fps int) spinner.Spinner {
 }
 
 func main() {
+	alertScriptPath = os.Getenv("tPOMODORO_ALERT_SCRIPT")
 	m := model{
 		progress: progress.New(progressOption),
 		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus, spinnerFPS))),
@@ -151,7 +167,7 @@ func main() {
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return tea.SetWindowTitle("tPomodoro")
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -162,6 +178,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keymap.reset):
 			m.isStart = false
 			m.isPause = false
+			m.isFinish = false
 			m.currentTimeSeconds = 0
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
@@ -210,6 +227,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				nextPomodoroCycle = 1
 			}
 
+			m.isFinish = false
 			m.currentTimeSeconds = 0
 			m.currentState = nextState
 			m.currentPomodoroCycle = nextPomodoroCycle
@@ -265,6 +283,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.currentTimeSeconds = currentTimeSeconds
+		shouldFinish := !m.isFinish && (targetTimeSeconds == currentTimeSeconds)
+
+		if shouldFinish {
+			m.isFinish = true
+			executeShell(alertScriptPath, m.currentState.String())
+		}
 
 		timeProgress := (currentTimeSeconds / targetTimeSeconds)
 		visualTimeProgress := timeProgress
@@ -302,11 +326,12 @@ func (m model) View() string {
 	var contextHint string
 
 	shouldShowPomodoroCycle := (m.currentState != StateLongBreak)
+	statelabel := getStateLabel(m.currentState)
 
 	if shouldShowPomodoroCycle {
-		title = fmt.Sprintf("%s (%d/%d)", m.currentState, m.currentPomodoroCycle, maxPomodoroCycle)
+		title = fmt.Sprintf("%s (%d/%d)", statelabel, m.currentPomodoroCycle, maxPomodoroCycle)
 	} else {
-		title = m.currentState.String()
+		title = statelabel
 	}
 
 	if m.isPause {
@@ -364,4 +389,17 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+func executeShell(scriptPath string, message string) {
+	if scriptPath == "" {
+		return
+	}
+
+	cmd := exec.Command(scriptPath, message)
+	err := cmd.Run()
+
+	if err != nil {
+		log.Fatalf("\nCommand failed: %v", err)
+	}
 }
