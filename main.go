@@ -193,17 +193,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			switch m.currentState {
 			case StateFocus:
-				nextState = StateBreak
-
-			case StateBreak:
 				shouldChangeToLongBreak := ((m.currentPomodoroCycle + 1) > maxPomodoroCycle)
 
 				if shouldChangeToLongBreak {
 					nextState = StateLongBreak
 				} else {
-					nextState = StateFocus
-					nextPomodoroCycle = (m.currentPomodoroCycle + 1)
+					nextState = StateBreak
 				}
+
+			case StateBreak:
+				nextState = StateFocus
+				nextPomodoroCycle = (m.currentPomodoroCycle + 1)
 
 			case StateLongBreak:
 				nextState = StateFocus
