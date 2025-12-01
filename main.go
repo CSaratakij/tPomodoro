@@ -89,19 +89,24 @@ func getPomodoroTime(state PomodoroState) int {
 	}
 }
 
-func getDefaultSpinner(state PomodoroState) spinner.Spinner {
+func getDefaultSpinner(state PomodoroState, fps int) spinner.Spinner {
+	var result spinner.Spinner
+
 	switch state {
 	case StateFocus:
-		return spinner.Hamburger
+		result = spinner.Hamburger
 	default:
-		return spinner.Line
+		result = spinner.Line
 	}
+
+	result.FPS = (time.Second / time.Duration(fps))
+	return result
 }
 
 func main() {
 	m := model{
 		progress: progress.New(progressOption),
-		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus))),
+		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus, spinnerFPS))),
 		setting: setting{
 			focusTime:     getPomodoroTime(StateFocus),
 			breakTime:     getPomodoroTime(StateBreak),
@@ -153,6 +158,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		// Stop and Reset Timer
 		case key.Matches(msg, m.keymap.reset):
 			m.isStart = false
 			m.isPause = false
@@ -160,20 +166,71 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
 
+		// Start/Pause Timer
 		case key.Matches(msg, m.keymap.start):
 			isStart := m.isStart
+
 			if isStart {
 				isPaused := !m.isPause
-				return onPaused(m, isPaused)
+				m.isPause = isPaused
+
+				if isPaused {
+					return m, nil
+				} else {
+					cmd := m.spinner.Tick
+					return m, cmd
+				}
+
 			} else {
-				return onStarted(m, true)
+				m.isStart = true
+				return m, tea.Batch(tickCmd(), m.spinner.Tick)
 			}
 
+		// Change Pomodoro State
+		case key.Matches(msg, m.keymap.next):
+			nextState := StateFocus
+			nextPomodoroCycle := m.currentPomodoroCycle
+
+			switch m.currentState {
+			case StateFocus:
+				nextState = StateBreak
+
+			case StateBreak:
+				shouldChangeToLongBreak := ((m.currentPomodoroCycle + 1) > maxPomodoroCycle)
+
+				if shouldChangeToLongBreak {
+					nextState = StateLongBreak
+				} else {
+					nextState = StateFocus
+					nextPomodoroCycle = (m.currentPomodoroCycle + 1)
+				}
+
+			case StateLongBreak:
+				nextState = StateFocus
+				nextPomodoroCycle = 1
+			}
+
+			m.currentTimeSeconds = 0
+			m.currentState = nextState
+			m.currentPomodoroCycle = nextPomodoroCycle
+			m.spinner.Spinner = getDefaultSpinner(nextState, spinnerFPS)
+
+			cmd := m.progress.SetPercent(0)
+
+			if m.isPause {
+				m.isPause = false
+				return m, tea.Batch(cmd, m.spinner.Tick)
+			}
+
+			return m, cmd
+
+		// Toggle Hint Style
 		case key.Matches(msg, m.keymap.toggleHint):
 			isUseMinimalHint := !m.useMinimalHint
 			m.useMinimalHint = isUseMinimalHint
 			return m, nil
 
+		// Quit
 		case key.Matches(msg, m.keymap.quit):
 			return m, tea.Quit
 
@@ -237,22 +294,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	}
-}
-
-func onStarted(m model, isStarted bool) (tea.Model, tea.Cmd) {
-	m.isStart = isStarted
-	return m, tea.Batch(tickCmd(), m.spinner.Tick)
-}
-
-func onPaused(m model, isPaused bool) (tea.Model, tea.Cmd) {
-	m.isPause = isPaused
-
-	if !isPaused {
-		cmd := m.spinner.Tick
-		return m, cmd
-	}
-
-	return m, nil
 }
 
 func (m model) View() string {
