@@ -3,13 +3,26 @@
 - (TODO : image here)
 
 ### Features
-- [-] functional simple pomodoro in terminal
+- [x] minimal by design
+- [-] simple pomodoro in terminal
 - [ ] customization through config file
-- [ ] expose app events with ipc
+- [ ] broadcast app event with ipc
 
 ### Installation
-- #### Pre-built
-    TODO
+#### Pre-built
+TODO
 
-- #### Build from source
-    TODO
+#### Build from source
+TODO
+
+### Keybinding
+|Key|Action|
+|---|------|
+|s, spacebar|start / pause
+|r, reset|start / pause
+|b|next state|
+|tab|toggle hint|
+
+### Note
+- test with linux only
+- no built-in alert, use [ipc]() instead
