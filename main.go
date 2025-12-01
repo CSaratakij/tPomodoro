@@ -1,4 +1,3 @@
-// TODO : better key binding (s - start/stop, r - reset, b - next)
 package main
 
 import (
@@ -18,7 +17,7 @@ import (
 
 const (
 	padding          = 2
-	spinnerFPS       = 2
+	spinnerFPS       = 1
 	minStartProgress = 0.012
 	maxWidth         = 80
 	maxPomodoroCycle = 4
@@ -65,6 +64,7 @@ type setting struct {
 type keymap struct {
 	start key.Binding
 	reset key.Binding
+	next  key.Binding
 	quit  key.Binding
 }
 
@@ -114,6 +114,10 @@ func main() {
 			reset: key.NewBinding(
 				key.WithKeys("r"),
 				key.WithHelp("r", "reset"),
+			),
+			next: key.NewBinding(
+				key.WithKeys("b"),
+				key.WithHelp("b", "next"),
 			),
 			quit: key.NewBinding(
 				key.WithKeys("ctrl+c", "q"),
