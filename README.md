@@ -10,11 +10,15 @@ simple Pomodoro (TUI)
 
 ## Installation
 #### Pre-built
-- just grab it from [release](), unzip and have fun :D
+- just grab it from [release](https://github.com/CSaratakij/tPomodoro/releases), unzip and have fun :D
 
 #### Build from source
 ```shell
-$ git clone ""
+# Clone the tPomodoro repository
+$ git clone "https://github.com/CSaratakij/tPomodoro.git"
+$ cd tPomodoro
+
+# Fetch dependencies and build
 $ go mod download
 $ go build main.go
 ```
