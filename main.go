@@ -16,11 +16,13 @@ import (
 )
 
 const (
-	padding          = 2
-	spinnerFPS       = 1
-	minStartProgress = 0.012
-	maxWidth         = 80
-	maxPomodoroCycle = 4
+	padding                   = 2
+	spinnerFPS                = 1
+	minStartProgress          = 0.02
+	maxWidth                  = 80
+	maxPomodoroCycle          = 4
+	defaultContextHint        = "s · start/pause | r · reset | b · next"
+	defaultMinimalContextHint = "b · next"
 )
 
 type PomodoroState int
@@ -50,6 +52,7 @@ type model struct {
 	setting              setting
 	isStart              bool
 	isPause              bool
+	useMinimalHint       bool
 	currentState         PomodoroState
 	currentTimeSeconds   float64
 	currentPomodoroCycle int
@@ -62,14 +65,15 @@ type setting struct {
 }
 
 type keymap struct {
-	start key.Binding
-	reset key.Binding
-	next  key.Binding
-	quit  key.Binding
+	start      key.Binding
+	reset      key.Binding
+	next       key.Binding
+	toggleHint key.Binding
+	quit       key.Binding
 }
 
-var titleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render
-var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
+var activeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render
+var inactiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
 var progressOption = progress.WithSolidFill("#ffffff")
 
 func getPomodoroTime(state PomodoroState) int {
@@ -106,6 +110,7 @@ func main() {
 		currentState:         StateFocus,
 		currentTimeSeconds:   0,
 		currentPomodoroCycle: 1,
+		useMinimalHint:       false,
 		keymap: keymap{
 			start: key.NewBinding(
 				key.WithKeys("s", " "),
@@ -119,6 +124,10 @@ func main() {
 				key.WithKeys("b"),
 				key.WithHelp("b", "next"),
 			),
+			toggleHint: key.NewBinding(
+				key.WithKeys("tab"),
+				key.WithHelp("tab", "toggle hint"),
+			),
 			quit: key.NewBinding(
 				key.WithKeys("ctrl+c", "q"),
 				key.WithHelp("q", "quit"),
@@ -128,10 +137,10 @@ func main() {
 
 	m.progress.Width = maxWidth
 	m.progress.ShowPercentage = false
-	m.spinner.Spinner.FPS = time.Second / spinnerFPS
+	m.spinner.Spinner.FPS = (time.Second / spinnerFPS)
 
 	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
-		fmt.Println("Error", err)
+		fmt.Println("Error: ", err)
 		os.Exit(1)
 	}
 }
@@ -150,6 +159,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.currentTimeSeconds = 0
 			cmd := m.progress.SetPercent(0)
 			return m, cmd
+
 		case key.Matches(msg, m.keymap.start):
 			isStart := m.isStart
 			if isStart {
@@ -158,17 +168,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				return onStarted(m, true)
 			}
+
+		case key.Matches(msg, m.keymap.toggleHint):
+			isUseMinimalHint := !m.useMinimalHint
+			m.useMinimalHint = isUseMinimalHint
+			return m, nil
+
 		case key.Matches(msg, m.keymap.quit):
 			return m, tea.Quit
+
 		default:
 			return m, nil
 		}
 
 	case tea.WindowSizeMsg:
 		m.progress.Width = msg.Width - padding*2 - 4
+
 		if m.progress.Width > maxWidth {
 			m.progress.Width = maxWidth
 		}
+
 		return m, nil
 
 	case tickMsg:
@@ -182,19 +201,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		targetTimeSeconds := float64(getPomodoroTime(m.currentState) * 60.0)
-		currentTimeSeconds := m.currentTimeSeconds + 1
+		currentTimeSeconds := (m.currentTimeSeconds + 1)
 
 		if currentTimeSeconds > targetTimeSeconds {
 			currentTimeSeconds = targetTimeSeconds
 		}
 
-		timeProgress := currentTimeSeconds / targetTimeSeconds
 		m.currentTimeSeconds = currentTimeSeconds
 
-		cmd := m.progress.SetPercent(timeProgress)
+		timeProgress := (currentTimeSeconds / targetTimeSeconds)
+		visualTimeProgress := timeProgress
+
+		shouldEarlyFillProgress := (visualTimeProgress < minStartProgress)
+
+		if shouldEarlyFillProgress {
+			visualTimeProgress = minStartProgress
+		}
+
+		cmd := m.progress.SetPercent(visualTimeProgress)
 		return m, tea.Batch(tickCmd(), cmd)
 
-	// FrameMsg is sent when the progress bar wants to animate itself
 	case progress.FrameMsg:
 		progressModel, cmd := m.progress.Update(msg)
 		m.progress = progressModel.(progress.Model)
@@ -225,15 +251,22 @@ func onPaused(m model, isPaused bool) (tea.Model, tea.Cmd) {
 		cmd := m.spinner.Tick
 		return m, cmd
 	}
+
 	return m, nil
 }
 
 func (m model) View() string {
-	title := "Focus (1/4)"
-	//title := "Break (1/4)"
-	//title := "Long Break"
+	var title string
 	var subTitle string
 	var contextHint string
+
+	shouldShowPomodoroCycle := (m.currentState != StateLongBreak)
+
+	if shouldShowPomodoroCycle {
+		title = fmt.Sprintf("%s (%d/%d)", m.currentState, m.currentPomodoroCycle, maxPomodoroCycle)
+	} else {
+		title = m.currentState.String()
+	}
 
 	if m.isPause {
 		subTitle = "paused"
@@ -243,41 +276,47 @@ func (m model) View() string {
 		targetTimeMinutes := getPomodoroTime(m.currentState)
 		currentTimeMinutes := int(math.Trunc(m.currentTimeSeconds / 60.0))
 		elapsed := targetTimeMinutes - currentTimeMinutes
-
-		//subTitle = "25m"
 		subTitle = fmt.Sprintf("%2dm", elapsed)
-		//subTitle = " 5m"
-		//subTitle = "30m"
 	}
 
-	// TODO : context aware 's - start/pause/resume', show one word at the time
-	//if m.progress.Percent() == 1.0 {
-	contextHint = "s · start/pause | r · reset | b · next"
-	//}
+	if m.useMinimalHint {
+		if m.progress.Percent() == 1.0 {
+			contextHint = defaultMinimalContextHint
+		} else {
+			contextHint = ""
+		}
+	} else {
+		contextHint = defaultContextHint
+	}
 
 	titlePadding := utf8.RuneCountInString(title)
 	subTitlePadding := utf8.RuneCountInString(subTitle) + 2
 
-	totalBottomPadding := m.progress.Width - utf8.RuneCountInString(contextHint)
+	totalTopPadding := (m.progress.Width - (titlePadding + subTitlePadding))
+	totalBottomPadding := (m.progress.Width - utf8.RuneCountInString(contextHint))
+
+	if totalTopPadding < 0 {
+		totalBottomPadding = 0
+	}
 
 	if totalBottomPadding < 0 {
 		totalBottomPadding = 0
 	}
 
 	pad := strings.Repeat(" ", padding)
-	extraPadTop := strings.Repeat(" ", m.progress.Width-(titlePadding+subTitlePadding))
+	extraPadTop := strings.Repeat(" ", totalTopPadding)
 	extraPadBottom := strings.Repeat(" ", totalBottomPadding)
 
 	if m.isStart {
-		subTitle = titleStyle(subTitle)
+		subTitle = activeStyle(subTitle)
 	} else {
-		subTitle = helpStyle(subTitle)
+		subTitle = inactiveStyle(subTitle)
 	}
 
 	return "\n" +
-		pad + m.spinner.View() + " " + titleStyle(title) + extraPadTop + titleStyle(subTitle) + "\n" +
+		pad + m.spinner.View() + " " + activeStyle(title) + extraPadTop + activeStyle(subTitle) + "\n" +
 		pad + m.progress.View() + "\n" +
-		pad + extraPadBottom + helpStyle(contextHint)
+		pad + extraPadBottom + inactiveStyle(contextHint)
 }
 
 func tickCmd() tea.Cmd {

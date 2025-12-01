@@ -5,7 +5,7 @@
 ### Features
 - [x] minimal by design
 - [-] simple pomodoro in terminal
-- [ ] customization through config file
+- [ ] customization through cli
 - [ ] broadcast app event with ipc
 
 ### Installation
@@ -21,7 +21,7 @@ TODO
 |s, spacebar|start / pause
 |r, reset|start / pause
 |b|next state|
-|tab|toggle hint|
+|tab|toggle hint style|
 
 ### Note
 - test with linux only
