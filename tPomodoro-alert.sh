@@ -23,3 +23,4 @@ notify-send -u normal -t $alert_timeout "$header" "$subtitle"
 if [ -n "${tPOMODORO_ALERT_AUDIO_PATH+x}" ]; then
 	aplay "$tPOMODORO_ALERT_AUDIO_PATH" &
 fi
+

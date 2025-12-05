@@ -258,11 +258,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		m.progress.Width = msg.Width - padding*2 - 4
 
-		if m.progress.Width > maxWidth {
-			m.progress.Width = maxWidth
-		}
+		expectWidth := msg.Width - padding*2 - 4
+		m.progress.Width = min(expectWidth, maxWidth)
 
 		return m, nil
 
@@ -366,7 +364,7 @@ func (m model) View() string {
 	totalBottomPadding := (m.progress.Width - utf8.RuneCountInString(contextHint))
 
 	if totalTopPadding < 0 {
-		totalBottomPadding = 0
+		totalTopPadding = 0
 	}
 
 	if totalBottomPadding < 0 {
