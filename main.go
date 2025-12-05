@@ -21,6 +21,7 @@ const (
 	padding                   = 2
 	spinnerFPS                = 1
 	minStartProgress          = 0.02
+	maxBeforeFinishProgress   = 0.95
 	maxWidth                  = 80
 	maxPomodoroCycle          = 4
 	defaultContextHint        = "s · start/pause | r · reset | b · next"
@@ -293,10 +294,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		timeProgress := (currentTimeSeconds / targetTimeSeconds)
 		visualTimeProgress := timeProgress
 
-		shouldEarlyFillProgress := (visualTimeProgress < minStartProgress)
+		shouldEarlyFillProgress := !m.isFinish && (visualTimeProgress < minStartProgress)
+		shouldPreventFullFillProgress := !m.isFinish && (visualTimeProgress > maxBeforeFinishProgress)
 
 		if shouldEarlyFillProgress {
 			visualTimeProgress = minStartProgress
+		} else if shouldPreventFullFillProgress {
+			visualTimeProgress = maxBeforeFinishProgress
 		}
 
 		cmd := m.progress.SetPercent(visualTimeProgress)
