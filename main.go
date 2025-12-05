@@ -59,28 +59,33 @@ func getStateLabel(state PomodoroState) string {
 type tickMsg time.Time
 
 type model struct {
-	progress             progress.Model
-	spinner              spinner.Model
+	// Setting
 	keymap               keymap
 	setting              setting
+	// Visual
+	progress             progress.Model
+	spinner              spinner.Model
+	// App State
 	isStart              bool
 	isPause              bool
 	isFinish             bool
-	useMinimalHint       bool
-	currentState         PomodoroState
+	isUseMinimalHint     bool
 	currentTimeSeconds   float64
 	currentPomodoroCycle int
+	currentState         PomodoroState
 }
 
 type setting struct {
-	focusTime     int
-	breakTime     int
-	longBreakTime int
+	focusTime      int
+	breakTime      int
+	longBreakTime  int
+	useMinimalHint bool
 }
 
 type keymap struct {
 	start      key.Binding
 	reset      key.Binding
+	hardReset  key.Binding
 	next       key.Binding
 	toggleHint key.Binding
 	quit       key.Binding
@@ -125,14 +130,15 @@ func main() {
 		progress: progress.New(progressOption),
 		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus, spinnerFPS))),
 		setting: setting{
-			focusTime:     getPomodoroTime(StateFocus),
-			breakTime:     getPomodoroTime(StateBreak),
-			longBreakTime: getPomodoroTime(StateLongBreak),
+			focusTime:     		getPomodoroTime(StateFocus),
+			breakTime:			getPomodoroTime(StateBreak),
+			longBreakTime:		getPomodoroTime(StateLongBreak),
+			useMinimalHint:		false,
 		},
+		isUseMinimalHint:	  false,
 		currentState:         StateFocus,
 		currentTimeSeconds:   0,
 		currentPomodoroCycle: 1,
-		useMinimalHint:       false,
 		keymap: keymap{
 			start: key.NewBinding(
 				key.WithKeys("s", " "),
@@ -141,6 +147,10 @@ func main() {
 			reset: key.NewBinding(
 				key.WithKeys("r"),
 				key.WithHelp("r", "reset"),
+			),
+			hardReset: key.NewBinding(
+				key.WithKeys("ctrl+r"),
+				key.WithHelp("ctrl+r", "hard reset"),
 			),
 			next: key.NewBinding(
 				key.WithKeys("b"),
@@ -175,14 +185,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		// Hard Reset
+		case key.Matches(msg, m.keymap.hardReset):
+			m.isStart = false
+			m.isPause = false
+			m.isFinish = false
+			m.currentState = StateFocus
+			m.currentTimeSeconds = 0
+			m.currentPomodoroCycle = 1
+			m.spinner.Spinner = getDefaultSpinner(StateFocus, spinnerFPS)
+			cmdProgress := m.progress.SetPercent(0)
+			return m, cmdProgress
+
 		// Stop and Reset Timer
 		case key.Matches(msg, m.keymap.reset):
 			m.isStart = false
 			m.isPause = false
 			m.isFinish = false
 			m.currentTimeSeconds = 0
-			cmd := m.progress.SetPercent(0)
-			return m, cmd
+			cmdProgress := m.progress.SetPercent(0)
+			return m, cmdProgress
 
 		// Start/Pause Timer
 		case key.Matches(msg, m.keymap.start):
@@ -245,8 +267,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Toggle Hint Style
 		case key.Matches(msg, m.keymap.toggleHint):
-			isUseMinimalHint := !m.useMinimalHint
-			m.useMinimalHint = isUseMinimalHint
+			isUseMinimalHint := !m.isUseMinimalHint
+			m.isUseMinimalHint = isUseMinimalHint
 			return m, nil
 
 		// Quit
@@ -347,7 +369,7 @@ func (m model) View() string {
 		subTitle = fmt.Sprintf("%2dm", elapsed)
 	}
 
-	if m.useMinimalHint {
+	if m.isUseMinimalHint {
 		if m.progress.Percent() == 1.0 {
 			contextHint = defaultMinimalContextHint
 		} else {
@@ -405,3 +427,4 @@ func executeShell(scriptPath string, message string) {
 		log.Fatalf("\nCommand failed: %v", err)
 	}
 }
+
