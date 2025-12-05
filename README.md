@@ -28,7 +28,7 @@ $ go build main.go
 |Key|Action|
 |---|------|
 |s, spacebar|start / pause|
-|r, reset|reset current state|
+|r|reset current state|
 |ctrl+r|reset state to focus|
 |b|next state|
 |tab|toggle hint style|
