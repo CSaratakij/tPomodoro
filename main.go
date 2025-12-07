@@ -65,6 +65,8 @@ type model struct {
 	// Visual
 	progress             progress.Model
 	spinner              spinner.Model
+	windowWidth			 int
+	windowHeight		 int
 	// App State
 	isStart              bool
 	isPause              bool
@@ -93,6 +95,7 @@ type keymap struct {
 
 var activeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff")).Render
 var inactiveStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262")).Render
+var layoutStyle = lipgloss.NewStyle().Padding(1, 1).Render
 var progressOption = progress.WithSolidFill("#ffffff")
 
 var alertScriptPath string = ""
@@ -125,10 +128,13 @@ func getDefaultSpinner(state PomodoroState, fps int) spinner.Spinner {
 }
 
 func main() {
+
 	alertScriptPath = os.Getenv("tPOMODORO_ALERT_SCRIPT")
 	m := model{
 		progress: progress.New(progressOption),
 		spinner:  spinner.New(spinner.WithSpinner(getDefaultSpinner(StateFocus, spinnerFPS))),
+		windowWidth: 80,
+		windowHeight: 40,
 		setting: setting{
 			focusTime:     		getPomodoroTime(StateFocus),
 			breakTime:			getPomodoroTime(StateBreak),
@@ -283,6 +289,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		expectWidth := msg.Width - padding*2 - 4
 		m.progress.Width = min(expectWidth, maxWidth)
+		m.windowWidth = msg.Width
+		m.windowHeight = msg.Height
 
 		return m, nil
 
@@ -393,7 +401,6 @@ func (m model) View() string {
 		totalBottomPadding = 0
 	}
 
-	pad := strings.Repeat(" ", padding)
 	extraPadTop := strings.Repeat(" ", totalTopPadding)
 	extraPadBottom := strings.Repeat(" ", totalBottomPadding)
 
@@ -403,10 +410,12 @@ func (m model) View() string {
 		subTitle = inactiveStyle(subTitle)
 	}
 
-	return "\n" +
-		pad + m.spinner.View() + " " + activeStyle(title) + extraPadTop + activeStyle(subTitle) + "\n" +
-		pad + m.progress.View() + "\n" +
-		pad + extraPadBottom + inactiveStyle(contextHint)
+	views := m.spinner.View() + " " + activeStyle(title) + extraPadTop + activeStyle(subTitle) + "\n" +
+		m.progress.View() + "\n" +
+		extraPadBottom + inactiveStyle(contextHint)
+
+	return lipgloss.Place(m.windowWidth, m.windowHeight, lipgloss.Center, lipgloss.Center, layoutStyle(views))
+
 }
 
 func tickCmd() tea.Cmd {
