@@ -410,7 +410,7 @@ func (m model) View() string {
 		subTitle = inactiveStyle(subTitle)
 	}
 
-	views := m.spinner.View() + " " + activeStyle(title) + extraPadTop + activeStyle(subTitle) + "\n" +
+	views := m.spinner.View() + " " + activeStyle(title) + extraPadTop + subTitle + "\n" +
 		m.progress.View() + "\n" +
 		extraPadBottom + inactiveStyle(contextHint)
 
