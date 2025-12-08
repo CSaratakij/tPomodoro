@@ -9,7 +9,7 @@ simple Pomodoro (TUI)
 - [ - ] customization through cli
 
 ## Installation
-#### Pre-built
+#### Pre-built (linux only)
 - just grab it from [release](https://github.com/CSaratakij/tPomodoro/releases), unzip and have fun :D
 
 #### Build from source
