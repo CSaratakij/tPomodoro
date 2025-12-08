@@ -18,9 +18,9 @@ simple Pomodoro (TUI)
 $ git clone "https://github.com/CSaratakij/tPomodoro.git"
 $ cd tPomodoro
 
-# Fetch dependencies and build
-$ go mod download
-$ go build main.go
+# Build & Run
+$ make
+$ make run
 ```
 
 ## Getting Started
